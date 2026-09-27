@@ -1,9 +1,14 @@
 package com.example.demo.controller;
 
+import com.example.demo.exceptionClasses.TaskNotFound;
+import com.example.demo.exceptionClasses.UnauthorizedAccess;
 import com.example.demo.model.Task;
 import com.example.demo.model.User;
 import com.example.demo.service.TaskService;
 import com.example.demo.token.JwtUtil;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -15,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.demo.service.UserService;
 import com.example.demo.DTO.TaskResponseDTO;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 public class hell {
@@ -53,10 +59,10 @@ public class hell {
                 return ResponseEntity.ok(taskResponseDTO);
             }
             else {
-                return ResponseEntity.status(403).body(null);
+                throw new UnauthorizedAccess(id, "You cannot update this task.");
             }
         }
-        return ResponseEntity.notFound().build();
+        throw new TaskNotFound(id, "Task not found");
     }
     @DeleteMapping("/tasks/{id}")
     public ResponseEntity<Void> deleteTask(@PathVariable long id, @AuthenticationPrincipal UserDetails userDetails) {
@@ -68,14 +74,22 @@ public class hell {
                 taskService.deleteTask(id);
                 return ResponseEntity.noContent().build();
             }
-            return ResponseEntity.status(403).build();
+            throw new UnauthorizedAccess(id, "You are not allowed delete this task.");
         }
-        return ResponseEntity.notFound().build();
+        throw new TaskNotFound(id, "Task not found");
+    }
+    public TaskResponseDTO convertTaskResponseDTO(Task task) {
+        return new TaskResponseDTO(task);
     }
     @GetMapping("/tasks")
-    public List<Task> getTasks() {
-        return taskService.getAllTasks();
+    public List<TaskResponseDTO> getAllTasks(@AuthenticationPrincipal UserDetails userDetails, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        long id = userService.getUserByUsername(userDetails.getUsername()).get().getId();
+        Page<Task> allTasks = taskService.getAllTasks(id, pageable);
+        List<TaskResponseDTO> allTaskDTOs = allTasks.stream().map(task -> new TaskResponseDTO(task)).collect(Collectors.toList());
+        return allTaskDTOs;
     }
+
     @GetMapping("/tasks/{id}")
     public ResponseEntity<TaskResponseDTO> getTaskById(@AuthenticationPrincipal UserDetails userDetails, @PathVariable long id) {
         Optional<Task> desire = taskService.getTaskById(id);
@@ -87,11 +101,12 @@ public class hell {
                 return ResponseEntity.ok(taskResponseDTO);
             }
             else {
-                return ResponseEntity.status(403).build();
+                throw new UnauthorizedAccess(id, "You are not allowed to view this task.");
             }
         }
-        return ResponseEntity.notFound().build();
+        throw new TaskNotFound(id, "No such task exists.");
     }
+
     @PostMapping("/register")
     public ResponseEntity<String> newUser(@RequestBody User user) {
         User n;

@@ -1,6 +1,8 @@
 package com.example.demo.service;
 
 import com.example.demo.model.Task;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import com.example.demo.repository.TaskRepository;
 
@@ -16,8 +18,8 @@ public class TaskService {
     public Task createTask(Task task) {
         return taskrepository.save(task);
     }
-    public List<Task> getAllTasks() {
-        return taskrepository.findAll();
+    public Page<Task> getAllTasks(long ownerId, Pageable pageable) {
+        return taskrepository.getTaskByOwnerId(ownerId, pageable);
     }
 
     public Optional<Task> getTaskById(long id) {
